@@ -5,7 +5,7 @@ platform:
   - x64
 
 environment:
-  PATH: C:\msys64\usr\bin;%PATH%
+  PATH:  C:\Program Files\PowerShell\7;%PATH%
   CL_OPTIONS: /W3 /D_CRT_SECURE_NO_DEPRECATE /DWIN32_LEAN_AND_MEAN /GS /MT /DHAVE_CONFIG_H /I%APPVEYOR_BUILD_FOLDER%
   GENGETOPT: /usr/bin/gengetopt.exe --include-getopt
   HELP2MAN: /usr/bin/true # don't generate manual files
@@ -76,7 +76,7 @@ build_script:
   # The following has already been performed by make (see above)
   # gengetopt.exe --include-getopt --file-name=cvc-create-cmdline --input= cvc-create.ggo
   - cl /I%OPENSSL_DIR%\include /I. libeacMT.lib %OPENSSL_DIR%\lib\VC\static\%LIBCRYPTO% user32.lib advapi32.lib crypt32.lib gdi32.lib %CL_OPTIONS% %OPENSSL_1_1_0_FLAGS% cvc-create.c read_file.c cvc-create-cmdline.c vc.c
-  - cd .. 
+  - cd ..
   - cd bindings\python\
   - swig -python -outdir . -I.. eac.i
   - cl /I%OPENSSL_DIR%\include /I%PYTHON_INCLUDE% /I..\..\src %CL_OPTIONS% %OPENSSL_1_1_0_FLAGS% /c eac_wrap.c ..\..\src\ssl_compat.c ..\..\src\vc.c
