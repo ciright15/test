@@ -16,6 +16,8 @@ environment:
     - VSVER: 14
 
 install:
+  - set PATH=C:\Program Files\Git\cmd;%PATH%
+  - git --version
   - choco install powershell-core
   - pwsh -Command "Write-Host 'PowerShell Core is available!'"
   - ps: >-
