@@ -6,7 +6,7 @@ platform:
 
 environment:
   # Add MSYS2 paths if required
-  PATH: C:\msys64\usr\bin;%PATH%
+  PATH: C:\Program Files\PowerShell\7;%PATH%,C:\Program Files\Git\cmd;%PATH%
   CL_OPTIONS: /W3 /D_CRT_SECURE_NO_DEPRECATE /DWIN32_LEAN_AND_MEAN /GS /MT /DHAVE_CONFIG_H /I%APPVEYOR_BUILD_FOLDER%
   GENGETOPT: /usr/bin/gengetopt.exe --include-getopt
   HELP2MAN: /usr/bin/true # don't generate manual files
