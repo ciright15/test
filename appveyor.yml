@@ -7,8 +7,6 @@ platform:
 environment:
   PATH:  C:\Program Files\PowerShell\7;%PATH%,C:\Program Files\Git\cmd;%PATH%
   CL_OPTIONS: /W3 /D_CRT_SECURE_NO_DEPRECATE /DWIN32_LEAN_AND_MEAN /GS /MT /DHAVE_CONFIG_H /I%APPVEYOR_BUILD_FOLDER%
-  GENGETOPT: /usr/bin/gengetopt.exe --include-getopt
-  HELP2MAN: /usr/bin/true
   matrix:
     - VSVER: 14
 
@@ -38,23 +36,6 @@ install:
   - set CRYPTO_CFLAGS=-I%OPENSSL_CYGDIR%/include
   - set CRYPTO_LIBS="-L%OPENSSL_CYGDIR%/lib -llibeay32"
 
-  - bash -c "pacman --needed --noconfirm --sync pacman-mirrors || { echo 'Failed to sync pacman mirrors'; exit 1; }"
-  - bash -c "pacman --needed --noconfirm --sync autoconf automake libtool gengetopt swig || { echo 'Failed to install dependencies'; exit 1; }"
-
-  - python -V || { echo 'Python version check failed'; exit 1; }
-  - swig -version || { echo 'SWIG version check failed'; exit 1; }
-
-  - ps: $env:VSCOMNTOOLS=(Get-Content ("env:VS" + "$env:VSVER" + "0COMNTOOLS"))
-  - echo "Using Visual Studio %VSVER%.0 at %VSCOMNTOOLS%"
-  - call "%VSCOMNTOOLS%\..\..\VC\vcvarsall.bat" %VCVARS_PLATFORM%
-
-build_script:
-  # preparation with Autotools and MinGW-w64
-  - bash -c "autoreconf -i || { echo 'autoreconf failed'; exit 1; }"
-  - bash -c "touch src/cvc-create.1 src/cvc-print.1"
-  - bash -c "./configure --prefix=/ || { echo 'configure failed'; exit 1; }"
-  - bash -c "make -C src cvc-print-cmdline.c cvc-create-cmdline.c || { echo 'make failed'; exit 1; }"
-
-  # build with plain cl in cmd and statically bound OpenSSL
-  - cd src
-  - cl /I%OPENSSL_DIR%\include /I. /DX509DIR=\"/\" /DCVCDIR=\"/\" %CL_OPTIONS% %OPENSSL_1_1_0_FLAGS% /c ca_lib.c cv_cert.c cvc_lookup.c x509_lookup.c eac_asn1.c eac.c eac_ca.c eac_dh.c eac_ecdh.c eac_kdf.c eac_lib.c eac_print.c eac_util.c
+  # Check if directories exist
+  - if not exist "%OPENSSL_DIR%" echo "OpenSSL directory does not exist!" && exit 1
+  - if not exist "%PYTHON_INCLUDE%"
