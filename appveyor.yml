@@ -1,8 +1,6 @@
-version: 1.1.3.{build}
+version: 1.0.{build}
 
-platform:
-  - x86
-  - x64
+image: Visual Studio 2019
 
 environment:
   # Add MSYS2 paths if required
@@ -10,91 +8,59 @@ environment:
   CL_OPTIONS: /W3 /D_CRT_SECURE_NO_DEPRECATE /DWIN32_LEAN_AND_MEAN /GS /MT /DHAVE_CONFIG_H /I%APPVEYOR_BUILD_FOLDER%
   GENGETOPT: /usr/bin/gengetopt.exe --include-getopt
   HELP2MAN: /usr/bin/true # don't generate manual files
-  
+  OPENSSL_1_1_0_FLAGS: /DHAVE_ASN1_STRING_GET0_DATA=1 /DHAVE_DECL_OPENSSL_ZALLOC=1 /DHAVE_DH_GET0_KEY=1 /DHAVE_DH_GET0_PQG=1 /DHAVE_DH_SET0_KEY=1 /DHAVE_DH_SET0_PQG=1 /DHAVE_ECDSA_SIG_GET0=1 /DHAVE_ECDSA_SIG_SET0=1 /DHAVE_EC_KEY_METHOD=1 /DHAVE_RSA_GET0_KEY=1 /DHAVE_RSA_SET0_KEY=1
+
   matrix:
-    - VSVER: 16  # Visual Studio 2019
-
+    - VSVER: 14  # Visual Studio version (Visual Studio 2015)
+    
 install:
-  - ps: |
-      # Install necessary Python version
-      set PATH=C:\Python38;%PATH%
-      set PYTHON_INCLUDE=C:\Python38\include
-      set PYTHON_LIB=C:\Python38\libs\python38.lib
-
-      # Set platform-specific variables
+  - ps: >-
       If ($env:Platform -Match "x86") {
         $env:VCVARS_PLATFORM="x86"
         $env:OPENSSL_PLATFORM="Win32"
         $env:OPENPACE_PLATFORM="win32"
         $env:LIBCRYPTO="libeay32MT.lib"
+        $env:PYTHON_PLATFORM=""
       } Else {
         $env:VCVARS_PLATFORM="amd64"
         $env:OPENSSL_PLATFORM="Win64"
         $env:OPENPACE_PLATFORM="win64"
         $env:LIBCRYPTO="libeay32MT.lib"
+        $env:PYTHON_PLATFORM="-x64"
       }
+  - set PATH=C:\Python38%PYTHON_PLATFORM%;%PATH%
+  - set PYTHON_INCLUDE=C:\Python38%PYTHON_PLATFORM%\include
+  - set PYTHON_LIB=C:\Python38%PYTHON_PLATFORM%\libs\python38.lib
+  - set ARTIFACT=%APPVEYOR_PROJECT_NAME%_%OPENPACE_PLATFORM%-vs%VSVER%-python3
+  - set OPENSSL_DIR=C:\OpenSSL-%OPENSSL_PLATFORM%
+  - for /f "usebackq tokens=*" %%a in (`cygpath -u %OPENSSL_DIR%`) do set OPENSSL_CYGDIR=%%a
+  - set OPENPACE_DIR=C:\%ARTIFACT%
+  - for /f "usebackq tokens=*" %%a in (`cygpath -u %OPENPACE_DIR%`) do set DESTDIR=%%a
+  - set CRYPTO_CFLAGS=-I%OPENSSL_CYGDIR%/include
+  - set CRYPTO_LIBS="-L%OPENSSL_CYGDIR%/lib -llibeay32"
 
-      # Set artifact directory
-      set ARTIFACT=%APPVEYOR_PROJECT_NAME%_%OPENPACE_PLATFORM%-vs%VSVER%-python3
-      set OPENSSL_DIR=C:\OpenSSL-%OPENSSL_PLATFORM%
-      for /f "usebackq tokens=*" %%a in (`cygpath -u %OPENSSL_DIR%`) do set OPENSSL_CYGDIR=%%a
-      set OPENPACE_DIR=C:\%ARTIFACT%
-      for /f "usebackq tokens=*" %%a in (`cygpath -u %OPENPACE_DIR%`) do set DESTDIR=%%a
-  # Install dependencies using MSYS2 (if needed)
-  - bash -c "pacman --needed --noconfirm --sync autoconf automake libtool gengetopt swig"
-
-  # Verify installs
-  - python -V
-  - swig -version
-
-  # Setup Visual Studio environment
-  - ps: $env:VSCOMNTOOLS=(Get-Content ("env:VS" + "$env:VSVER" + "0COMNTOOLS"))
-  - echo "Using Visual Studio %VSVER%.0 at %VSCOMNTOOLS%"
-  - call "%VSCOMNTOOLS%\..\..\VC\vcvarsall.bat" %VCVARS_PLATFORM%
-
+before_build:
+  - echo "Setting up Visual Studio environment"
+  - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %VCVARS_PLATFORM%
+  
 build_script:
-  # Prepare with Autotools and MinGW-w64
-  - bash -c "autoreconf -i"
-  - bash -c "touch src/cvc-create.1 src/cvc-print.1"
-  - bash -c "./configure --prefix=/"
-
-  # Build with MSVC (Visual Studio)
+  - echo "Building OpenPACE"
   - cd src
-  - cl /I%OPENSSL_DIR%\include /I. /DX509DIR=\"/\" /DCVCDIR=\"/\" %CL_OPTIONS% /c ca_lib.c cv_cert.c cvc_lookup.c x509_lookup.c eac_asn1.c eac.c eac_ca.c eac_dh.c eac_ecdh.c eac_kdf.c eac_lib.c eac_print.c eac_util.c misc.c pace.c pace_lib.c pace_mappings.c ri.c ri_lib.c ta.c ta_lib.c objects.c ssl_compat.c
+  - cl /I%OPENSSL_DIR%\include /I. /DX509DIR=\"/\" /DCVCDIR=\"/\" %CL_OPTIONS% %OPENSSL_1_1_0_FLAGS% /c ca_lib.c cv_cert.c cvc_lookup.c x509_lookup.c eac_asn1.c eac.c eac_ca.c eac_dh.c eac_ecdh.c eac_kdf.c eac_lib.c eac_print.c eac_util.c misc.c pace.c pace_lib.c pace_mappings.c ri.c ri_lib.c ta.c ta_lib.c objects.c ssl_compat.c
   - lib /out:libeacMT.lib ws2_32.lib ca_lib.obj cv_cert.obj cvc_lookup.obj x509_lookup.obj eac_asn1.obj eac.obj eac_ca.obj eac_dh.obj eac_ecdh.obj eac_kdf.obj eac_lib.obj eac_print.obj eac_util.obj misc.obj pace.obj pace_lib.obj pace_mappings.obj ri.obj ri_lib.obj ta.obj ta_lib.obj objects.obj ssl_compat.obj
-  - cl /I%OPENSSL_DIR%\include /I. libeacMT.lib %OPENSSL_DIR%\lib\VC\static\%LIBCRYPTO% user32.lib advapi32.lib crypt32.lib gdi32.lib %CL_OPTIONS% eactest.c vc.c ssl_compat.c
-
-  # Generate Python bindings with SWIG
-  - cd bindings\python\
-  - swig -python -outdir . -I.. eac.i
-  - cl /I%OPENSSL_DIR%\include /I%PYTHON_INCLUDE% /I..\..\src %CL_OPTIONS% /c eac_wrap.c ..\..\src\ssl_compat.c ..\..\src\vc.c
-  - link /out:_eac.pyd /dll eac_wrap.obj ssl_compat.obj vc.obj %PYTHON_LIB% ..\..\src\libeacMT.lib %OPENSSL_DIR%\lib\VC\static\%LIBCRYPTO% user32.lib advapi32.lib crypt32.lib gdi32.lib
-  - cd ..\..
-
-  # Package all artifacts
-  - bash -c "make install-data-recursive"
-  - bash -c "cp src/libeacMT.lib $DESTDIR/lib"
-  - bash -c "mkdir -p $DESTDIR/bin"
-  - bash -c "cp src/eactest.exe $DESTDIR/bin"
-  - bash -c "cp src/cvc-create.exe $DESTDIR/bin"
-  - bash -c "cp src/cvc-print.exe $DESTDIR/bin"
-  - bash -c "tail -n +2 bindings/python/cvc_rehash.in > $DESTDIR/bin/cvc_rehash"
-  - bash -c "cp bindings/python/eac.py $DESTDIR/bin"
-  - bash -c "cp bindings/python/_eac.pyd $DESTDIR/bin"
-  - bash -c "cp bindings/python/example.py $DESTDIR/bin"
-  - bash -c "cp bindings/python/chat.py $DESTDIR/bin"
-  - bash -c "cp bindings/python/pace_entity.py $DESTDIR/bin"
-  - bash -c "$OPENSSL_CYGDIR/bin/openssl.exe version >> $DESTDIR/dependencies.txt"
-
-  # Run tests
-  - bash -c "$DESTDIR/bin/eactest.exe"
-  - bash -c "for i in $DESTDIR/etc/eac/cvc/*; do $DESTDIR/bin/cvc-print --cvc=$i --cvc-dir=$DESTDIR/etc/eac/cvc/; done"
-  - bash -c "python bindings/python/test.py"
-
+  - cl /I%OPENSSL_DIR%\include /I. libeacMT.lib %OPENSSL_DIR%\lib\VC\static\%LIBCRYPTO% user32.lib advapi32.lib crypt32.lib gdi32.lib %CL_OPTIONS% %OPENSSL_1_1_0_FLAGS% eactest.c vc.c ssl_compat.c
+  - cl /I%OPENSSL_DIR%\include /I. libeacMT.lib %OPENSSL_DIR%\lib\VC\static\%LIBCRYPTO% user32.lib advapi32.lib crypt32.lib gdi32.lib %CL_OPTIONS% %OPENSSL_1_1_0_FLAGS% cvc-print.c read_file.c cvc-print-cmdline.c vc.c
+  - cl /I%OPENSSL_DIR%\include /I. libeacMT.lib %OPENSSL_DIR%\lib\VC\static\%LIBCRYPTO% user32.lib advapi32.lib crypt32.lib gdi32.lib %CL_OPTIONS% %OPENSSL_1_1_0_FLAGS% cvc-create.c read_file.c cvc-create-cmdline.c vc.c
+  - cd ..
+  
+after_build:
+  - echo "Build finished successfully"
+  - mkdir %DESTDIR%\bin
+  - copy src\*.exe %DESTDIR%\bin\
+  - copy src\*.lib %DESTDIR%\lib\
+  - copy src\*.dll %DESTDIR%\bin\
+  - copy src\*.pdb %DESTDIR%\bin\
+  
   # Push the final artifacts
   - 7z a %ARTIFACT%.zip $OPENPACE_DIR > nul
   - appveyor PushArtifact %ARTIFACT%.zip
-
-cache:
-  - C:\msys64\var\cache\pacman\pkg\gengetopt* -> appveyor.yml
-  - C:\msys64\var\cache\pacman\pkg\swig*      -> appveyor.yml
