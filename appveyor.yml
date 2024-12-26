@@ -14,7 +14,7 @@ environment:
 
   # Visual Studio matrix (e.g., 2015 version)
   matrix:
-    - VSVER: 14
+    - VSVER: 14  # Visual Studio 2015
 
 install:
   - ps: >-
