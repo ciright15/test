@@ -1,12 +1,10 @@
 version: 1.0.{build}
 
-platform:
-  - x86
-  - x64
+image: Visual Studio 2019
 
 environment:
-  # Custom paths for PowerShell, Git, and other required tools
-  PATH: C:\Program Files\PowerShell\7;%PATH%;C:\Program Files\Git\cmd
+  # Ensure legacy PowerShell is properly in the PATH
+  PATH: C:\Windows\System32\WindowsPowerShell\v1.0\;%PATH%;C:\Program Files\Git\cmd
   CL_OPTIONS: /W3 /D_CRT_SECURE_NO_DEPRECATE /DWIN32_LEAN_AND_MEAN /GS /MT /DHAVE_CONFIG_H /I%APPVEYOR_BUILD_FOLDER%
   GENGETOPT: /usr/bin/gengetopt.exe --include-getopt
   HELP2MAN: /usr/bin/true  # don't generate manual files
@@ -17,7 +15,13 @@ environment:
     - VSVER: 14  # Visual Studio 2015
 
 install:
-  - ps: >-
+  - ps: |
+      # Check if PowerShell Core (pwsh) is required and install if needed
+      If (-not (Test-Path "C:\Program Files\PowerShell\7\pwsh.exe")) {
+        Write-Host "Installing PowerShell Core..."
+        choco install powershell-core -y
+      }
+      
       # Setting platform-specific variables for x86 or x64 builds
       If ($env:Platform -Match "x86") {
         $env:VCVARS_PLATFORM="x86"
@@ -33,33 +37,19 @@ install:
         $env:PYTHON_PLATFORM="-x64"
       }
 
-  # Setup Python environment
+  # Python and other setup
   - set PATH=C:\Python38%PYTHON_PLATFORM%;%PATH%
   - set PYTHON_INCLUDE=C:\Python38%PYTHON_PLATFORM%\include
   - set PYTHON_LIB=C:\Python38%PYTHON_PLATFORM%\libs\python38.lib
 
-  # Set up artifact and OpenSSL directories
-  - set ARTIFACT=%APPVEYOR_PROJECT_NAME%_%OPENPACE_PLATFORM%-vs%VSVER%-python3
-  - set OPENSSL_DIR=C:\OpenSSL-%OPENSSL_PLATFORM%
-
-  # Convert Windows paths to Unix paths using cygpath (for OpenSSL setup)
-  - for /f "usebackq tokens=*" %%a in (`cygpath -u %OPENSSL_DIR%`) do set OPENSSL_CYGDIR=%%a
-  - set OPENPACE_DIR=C:\%ARTIFACT%
-  - for /f "usebackq tokens=*" %%a in (`cygpath -u %OPENPACE_DIR%`) do set DESTDIR=%%a
-  - set CRYPTO_CFLAGS=-I%OPENSSL_CYGDIR%/include
-  - set CRYPTO_LIBS="-L%OPENSSL_CYGDIR%/lib -llibeay32"
-
 before_build:
   - echo "Setting up Visual Studio environment"
-  # Ensure Visual Studio environment is properly initialized
   - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %VCVARS_PLATFORM%
 
 build_script:
   - echo "Building OpenPACE"
-  # Ensure OpenSSL version is displayed for troubleshooting
   - openssl version
   - cd src
-  # Compile the project using Visual Studio's cl and link tools
   - cl /I%OPENSSL_DIR%\include /I. /DX509DIR=\"/\" /DCVCDIR=\"/\" %CL_OPTIONS% %OPENSSL_1_1_0_FLAGS% /c ca_lib.c cv_cert.c cvc_lookup.c x509_lookup.c eac_asn1.c eac.c eac_ca.c eac_dh.c eac_ecdh.c eac_kdf.c eac_lib.c eac_print.c eac_util.c misc.c pace.c pace_lib.c pace_mappings.c ri.c ri_lib.c ta.c ta_lib.c objects.c ssl_compat.c
   - lib /out:libeacMT.lib ws2_32.lib ca_lib.obj cv_cert.obj cvc_lookup.obj x509_lookup.obj eac_asn1.obj eac.obj eac_ca.obj eac_dh.obj eac_ecdh.obj eac_kdf.obj eac_lib.obj eac_print.obj eac_util.obj misc.obj pace.obj pace_lib.obj pace_mappings.obj ri.obj ri_lib.obj ta.obj ta_lib.obj objects.obj ssl_compat.obj
   - cl /I%OPENSSL_DIR%\include /I. libeacMT.lib %OPENSSL_1_1_0_FLAGS% /DOPENSSL_USE_PKG_CONFIG
@@ -70,6 +60,3 @@ after_build:
 test_script:
   - echo "Running tests to ensure no padding issues occur"
   - python3 -c "import cryptography; print(cryptography.__version__)"
-
-  # Optional: Additional testing steps can be added here if required
-  # For example, running any unit tests or integration tests for the built components
