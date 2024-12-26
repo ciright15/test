@@ -1,6 +1,6 @@
 version: 1.0.{build}
 
-image: Visual Studio 2017 # or Visual Studio 2017 if 2019 is not available
+image: Visual Studio 2019 # or Visual Studio 2017 if 2019 is not available
 
 environment:
   PATH: C:\Program Files\PowerShell\7;%PATH%;C:\Program Files\Git\cmd;%PATH%
