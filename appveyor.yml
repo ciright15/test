@@ -1,19 +1,22 @@
 version: 1.0.{build}
 
-image: Visual Studio 2019 # or Visual Studio 2017 if 2019 is not available
+image: Visual Studio 2019  # or Visual Studio 2017 if 2019 is not available
 
 environment:
-  PATH: C:\Program Files\PowerShell\7;%PATH%;C:\Program Files\Git\cmd;%PATH%
+  # Setting up custom paths for PowerShell, Git, and other required tools
+  PATH: C:\Program Files\PowerShell\7;%PATH%;C:\Program Files\Git\cmd
   CL_OPTIONS: /W3 /D_CRT_SECURE_NO_DEPRECATE /DWIN32_LEAN_AND_MEAN /GS /MT /DHAVE_CONFIG_H /I%APPVEYOR_BUILD_FOLDER%
   GENGETOPT: /usr/bin/gengetopt.exe --include-getopt
   HELP2MAN: /usr/bin/true
   OPENSSL_1_1_0_FLAGS: /DHAVE_ASN1_STRING_GET0_DATA=1 /DHAVE_DECL_OPENSSL_ZALLOC=1 /DHAVE_DH_GET0_KEY=1 /DHAVE_DH_GET0_PQG=1 /DHAVE_DH_SET0_KEY=1 /DHAVE_DH_SET0_PQG=1 /DHAVE_ECDSA_SIG_GET0=1 /DHAVE_ECDSA_SIG_SET0=1 /DHAVE_EC_KEY_METHOD=1 /DHAVE_RSA_GET0_KEY=1 /DHAVE_RSA_SET0_KEY=1
 
+  # Defining matrix for different Visual Studio versions
   matrix:
-    - VSVER: 14
+    - VSVER: 14  # Visual Studio 2015
 
 install:
   - ps: >-
+      # Setting platform-specific variables for x86 or x64 builds
       If ($env:Platform -Match "x86") {
         $env:VCVARS_PLATFORM="x86"
         $env:OPENSSL_PLATFORM="Win32"
@@ -27,11 +30,17 @@ install:
         $env:LIBCRYPTO="libeay32MT.lib"
         $env:PYTHON_PLATFORM="-x64"
       }
+  
+  # Setup Python environment
   - set PATH=C:\Python38%PYTHON_PLATFORM%;%PATH%
   - set PYTHON_INCLUDE=C:\Python38%PYTHON_PLATFORM%\include
   - set PYTHON_LIB=C:\Python38%PYTHON_PLATFORM%\libs\python38.lib
+  
+  # Set up artifact and OpenSSL directories
   - set ARTIFACT=%APPVEYOR_PROJECT_NAME%_%OPENPACE_PLATFORM%-vs%VSVER%-python3
   - set OPENSSL_DIR=C:\OpenSSL-%OPENSSL_PLATFORM%
+  
+  # Convert Windows paths to Unix paths using cygpath (for OpenSSL setup)
   - for /f "usebackq tokens=*" %%a in (`cygpath -u %OPENSSL_DIR%`) do set OPENSSL_CYGDIR=%%a
   - set OPENPACE_DIR=C:\%ARTIFACT%
   - for /f "usebackq tokens=*" %%a in (`cygpath -u %OPENPACE_DIR%`) do set DESTDIR=%%a
@@ -40,12 +49,15 @@ install:
 
 before_build:
   - echo "Setting up Visual Studio environment"
+  # Ensure Visual Studio environment is properly initialized
   - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" %VCVARS_PLATFORM%
 
 build_script:
   - echo "Building OpenPACE"
+  # Ensure OpenSSL version is displayed for troubleshooting
   - openssl version
   - cd src
+  # Compile the project using Visual Studio's cl and link tools
   - cl /I%OPENSSL_DIR%\include /I. /DX509DIR=\"/\" /DCVCDIR=\"/\" %CL_OPTIONS% %OPENSSL_1_1_0_FLAGS% /c ca_lib.c cv_cert.c cvc_lookup.c x509_lookup.c eac_asn1.c eac.c eac_ca.c eac_dh.c eac_ecdh.c eac_kdf.c eac_lib.c eac_print.c eac_util.c misc.c pace.c pace_lib.c pace_mappings.c ri.c ri_lib.c ta.c ta_lib.c objects.c ssl_compat.c
   - lib /out:libeacMT.lib ws2_32.lib ca_lib.obj cv_cert.obj cvc_lookup.obj x509_lookup.obj eac_asn1.obj eac.obj eac_ca.obj eac_dh.obj eac_ecdh.obj eac_kdf.obj eac_lib.obj eac_print.obj eac_util.obj misc.obj pace.obj pace_lib.obj pace_mappings.obj ri.obj ri_lib.obj ta.obj ta_lib.obj objects.obj ssl_compat.obj
   - cl /I%OPENSSL_DIR%\include /I. libeacMT.lib %OPENSSL_1_1_0_FLAGS% /DOPENSSL_USE_PKG_CONFIG
