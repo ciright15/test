@@ -1,6 +1,5 @@
 version: 1.0.{build}
 
-image: Visual Studio 2019
 
 environment:
   # Ensure legacy PowerShell is properly in the PATH
