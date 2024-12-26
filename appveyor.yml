@@ -3,15 +3,14 @@ version: 1.0.{build}
 image: Visual Studio 2019
 
 environment:
-  # Add MSYS2 paths if required
   PATH: C:\Program Files\PowerShell\7;%PATH%;C:\Program Files\Git\cmd;%PATH%
   CL_OPTIONS: /W3 /D_CRT_SECURE_NO_DEPRECATE /DWIN32_LEAN_AND_MEAN /GS /MT /DHAVE_CONFIG_H /I%APPVEYOR_BUILD_FOLDER%
   GENGETOPT: /usr/bin/gengetopt.exe --include-getopt
-  HELP2MAN: /usr/bin/true # don't generate manual files
+  HELP2MAN: /usr/bin/true
   OPENSSL_1_1_0_FLAGS: /DHAVE_ASN1_STRING_GET0_DATA=1 /DHAVE_DECL_OPENSSL_ZALLOC=1 /DHAVE_DH_GET0_KEY=1 /DHAVE_DH_GET0_PQG=1 /DHAVE_DH_SET0_KEY=1 /DHAVE_DH_SET0_PQG=1 /DHAVE_ECDSA_SIG_GET0=1 /DHAVE_ECDSA_SIG_SET0=1 /DHAVE_EC_KEY_METHOD=1 /DHAVE_RSA_GET0_KEY=1 /DHAVE_RSA_SET0_KEY=1
 
   matrix:
-    - VSVER: 14  # Visual Studio version (Visual Studio 2015)
+    - VSVER: 14
 
 install:
   - ps: >-
@@ -45,23 +44,15 @@ before_build:
 
 build_script:
   - echo "Building OpenPACE"
-  # Ensure OpenSSL version is logged for debugging
   - openssl version
   - cd src
-  # Check for proper padding and encryption settings in OpenSSL and OpenPACE
   - cl /I%OPENSSL_DIR%\include /I. /DX509DIR=\"/\" /DCVCDIR=\"/\" %CL_OPTIONS% %OPENSSL_1_1_0_FLAGS% /c ca_lib.c cv_cert.c cvc_lookup.c x509_lookup.c eac_asn1.c eac.c eac_ca.c eac_dh.c eac_ecdh.c eac_kdf.c eac_lib.c eac_print.c eac_util.c misc.c pace.c pace_lib.c pace_mappings.c ri.c ri_lib.c ta.c ta_lib.c objects.c ssl_compat.c
-  # Add OpenSSL libraries to the final linking step with proper padding handling
   - lib /out:libeacMT.lib ws2_32.lib ca_lib.obj cv_cert.obj cvc_lookup.obj x509_lookup.obj eac_asn1.obj eac.obj eac_ca.obj eac_dh.obj eac_ecdh.obj eac_kdf.obj eac_lib.obj eac_print.obj eac_util.obj misc.obj pace.obj pace_lib.obj pace_mappings.obj ri.obj ri_lib.obj ta.obj ta_lib.obj objects.obj ssl_compat.obj
   - cl /I%OPENSSL_DIR%\include /I. libeacMT.lib %OPENSSL_1_1_0_FLAGS% /DOPENSSL_USE_PKG_CONFIG
-  # Ensure OpenSSL's padding is correctly handled during cryptographic operations
-  - echo "Building completed with OpenSSL padding settings"
 
 after_build:
   - echo "Post-build steps, ensuring no padding issues"
 
 test_script:
   - echo "Running tests to ensure no padding issues occur"
-  # Add any tests specific to your OpenPACE OpenSSL integration
-  # (e.g., test encryption/decryption behavior)
   - python3 -c "import cryptography; print(cryptography.__version__)"
-  # You may want to run a cryptographic test here to validate that padding works correctly
